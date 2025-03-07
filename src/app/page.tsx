@@ -1,101 +1,160 @@
-import Image from "next/image";
+"use client";
+
+import { useState, useEffect } from "react";
+import PrayerTime from "../components/prayer-time";
+import CountdownTimer from "../components/countdown-timer";
+
+interface PrayerTiming {
+  name: string;
+  time: string;
+}
 
 export default function Home() {
-  return (
-    <div className="grid grid-rows-[20px_1fr_20px] items-center justify-items-center min-h-screen p-8 pb-20 gap-16 sm:p-20 font-[family-name:var(--font-geist-sans)]">
-      <main className="flex flex-col gap-8 row-start-2 items-center sm:items-start">
-        <Image
-          className="dark:invert"
-          src="/next.svg"
-          alt="Next.js logo"
-          width={180}
-          height={38}
-          priority
-        />
-        <ol className="list-inside list-decimal text-sm text-center sm:text-left font-[family-name:var(--font-geist-mono)]">
-          <li className="mb-2">
-            Get started by editing{" "}
-            <code className="bg-black/[.05] dark:bg-white/[.06] px-1 py-0.5 rounded font-semibold">
-              src/app/page.tsx
-            </code>
-            .
-          </li>
-          <li>Save and see your changes instantly.</li>
-        </ol>
+  const [prayerTimes, setPrayerTimes] = useState<PrayerTiming[]>([]);
+  const [isLoading, setIsLoading] = useState(true);
+  const [error, setError] = useState<string | null>(null);
+  const [nextPrayer, setNextPrayer] = useState<{name: string, time: string} | null>(null);
 
-        <div className="flex gap-4 items-center flex-col sm:flex-row">
-          <a
-            className="rounded-full border border-solid border-transparent transition-colors flex items-center justify-center bg-foreground text-background gap-2 hover:bg-[#383838] dark:hover:bg-[#ccc] text-sm sm:text-base h-10 sm:h-12 px-4 sm:px-5"
-            href="https://vercel.com/new?utm_source=create-next-app&utm_medium=appdir-template-tw&utm_campaign=create-next-app"
-            target="_blank"
-            rel="noopener noreferrer"
-          >
-            <Image
-              className="dark:invert"
-              src="/vercel.svg"
-              alt="Vercel logomark"
-              width={20}
-              height={20}
-            />
-            Deploy now
-          </a>
-          <a
-            className="rounded-full border border-solid border-black/[.08] dark:border-white/[.145] transition-colors flex items-center justify-center hover:bg-[#f2f2f2] dark:hover:bg-[#1a1a1a] hover:border-transparent text-sm sm:text-base h-10 sm:h-12 px-4 sm:px-5 sm:min-w-44"
-            href="https://nextjs.org/docs?utm_source=create-next-app&utm_medium=appdir-template-tw&utm_campaign=create-next-app"
-            target="_blank"
-            rel="noopener noreferrer"
-          >
-            Read our docs
-          </a>
-        </div>
-      </main>
-      <footer className="row-start-3 flex gap-6 flex-wrap items-center justify-center">
-        <a
-          className="flex items-center gap-2 hover:underline hover:underline-offset-4"
-          href="https://nextjs.org/learn?utm_source=create-next-app&utm_medium=appdir-template-tw&utm_campaign=create-next-app"
-          target="_blank"
-          rel="noopener noreferrer"
-        >
-          <Image
-            aria-hidden
-            src="/file.svg"
-            alt="File icon"
-            width={16}
-            height={16}
+  // Namaz vakitlerini çekme
+  useEffect(() => {
+    async function fetchPrayerTimes() {
+      try {
+        setIsLoading(true);
+        const response = await fetch(
+          "https://api.aladhan.com/v1/timingsByCity?city=Istanbul&country=Turkey&method=13"
+        );
+        
+        if (!response.ok) {
+          throw new Error("Namaz vakitleri alınamadı");
+        }
+        
+        const data = await response.json();
+        
+        // API'den gelen verileri dönüştürme
+        const timings = data.data.timings;
+        const formattedTimes: PrayerTiming[] = [
+          { name: "İmsak", time: timings.Fajr },
+          { name: "Güneş", time: timings.Sunrise },
+          { name: "Öğle", time: timings.Dhuhr },
+          { name: "İkindi", time: timings.Asr },
+          { name: "Akşam", time: timings.Maghrib },
+          { name: "Yatsı", time: timings.Isha },
+        ];
+        
+        setPrayerTimes(formattedTimes);
+        
+        // Bir sonraki namaz vaktini hesaplama
+        const nextPrayer = findNextPrayer(formattedTimes);
+        if (nextPrayer) {
+          setNextPrayer(nextPrayer);
+        }
+      } catch (err) {
+        setError("Namaz vakitleri yüklenirken bir hata oluştu.");
+        console.error(err);
+      } finally {
+        setIsLoading(false);
+      }
+    }
+    
+    fetchPrayerTimes();
+    
+    // Her dakika güncelleme
+    const intervalId = setInterval(() => {
+      if (prayerTimes.length > 0) {
+        const nextPrayer = findNextPrayer(prayerTimes);
+        if (nextPrayer) {
+          setNextPrayer(nextPrayer);
+        }
+      }
+    }, 60000);
+    
+    return () => clearInterval(intervalId);
+  }, []);
+
+  // Bir sonraki namaz vaktini bulma
+  const findNextPrayer = (times: PrayerTiming[]): {name: string, time: string} | null => {
+    if (!times || times.length === 0) return null;
+    
+    const now = new Date();
+    const currentHours = now.getHours();
+    const currentMinutes = now.getMinutes();
+    const currentTimeInMinutes = currentHours * 60 + currentMinutes;
+    
+    // Namaz vakitlerini dakika cinsinden dönüştürme
+    const prayerTimesInMinutes = times.map(prayer => {
+      const [hours, minutes] = prayer.time.split(':').map(Number);
+      return {
+        name: prayer.name,
+        time: prayer.time,
+        timeInMinutes: hours * 60 + minutes
+      };
+    });
+    
+    // Şu anki zamandan sonraki ilk namaz vaktini bulma
+    const upcomingPrayers = prayerTimesInMinutes.filter(
+      prayer => prayer.timeInMinutes > currentTimeInMinutes
+    );
+    
+    if (upcomingPrayers.length > 0) {
+      // Bugün içinde sıradaki namaz
+      const nextPrayer = upcomingPrayers.reduce((earliest, current) => 
+        current.timeInMinutes < earliest.timeInMinutes ? current : earliest
+      );
+      
+      return {
+        name: nextPrayer.name,
+        time: nextPrayer.time
+      };
+    } else {
+      // Eğer bugün kalan namaz yoksa, yarının ilk namazı
+      return {
+        name: times[0].name + " (Yarın)",
+        time: times[0].time
+      };
+    }
+  };
+
+  if (isLoading) {
+    return (
+      <div className="flex items-center justify-center h-screen text-white bg-lime-950">
+        <p>Namaz vakitleri yükleniyor...</p>
+      </div>
+    );
+  }
+
+  if (error) {
+    return (
+      <div className="flex items-center justify-center h-screen text-white bg-lime-950">
+        <p>{error}</p>
+        <p>Lütfen internet bağlantınızı kontrol edin ve sayfayı yenileyin.</p>
+      </div>
+    );
+  }
+
+  return (
+    <div className="flex flex-col text-white bg-lime-950 h-screen">
+      {/* Geri sayım ve başlık için üst bölüm (esnek, içeriğe göre) */}
+      <div className="flex justify-center items-center p-4">
+        {nextPrayer && (
+          <div className="text-center p-4 border rounded-2xl border-white/20 mb-2">
+            <h1 className="text-2xl font-bold mb-2">Sıradaki Namaz</h1>
+            <h2 className="text-xl">{nextPrayer.name} - {nextPrayer.time}</h2>
+            <CountdownTimer targetTime={nextPrayer.time} prayerName={nextPrayer.name} />
+          </div>
+        )}
+      </div>
+      
+      {/* Namaz vakitleri için alt bölüm (kalan tüm alanı kaplar) */}
+      <div className="flex-1 flex flex-col">
+        {prayerTimes.map((data, index) => (
+          <PrayerTime 
+            key={index} 
+            time={data.time} 
+            name={data.name} 
+            index={index} 
           />
-          Learn
-        </a>
-        <a
-          className="flex items-center gap-2 hover:underline hover:underline-offset-4"
-          href="https://vercel.com/templates?framework=next.js&utm_source=create-next-app&utm_medium=appdir-template-tw&utm_campaign=create-next-app"
-          target="_blank"
-          rel="noopener noreferrer"
-        >
-          <Image
-            aria-hidden
-            src="/window.svg"
-            alt="Window icon"
-            width={16}
-            height={16}
-          />
-          Examples
-        </a>
-        <a
-          className="flex items-center gap-2 hover:underline hover:underline-offset-4"
-          href="https://nextjs.org?utm_source=create-next-app&utm_medium=appdir-template-tw&utm_campaign=create-next-app"
-          target="_blank"
-          rel="noopener noreferrer"
-        >
-          <Image
-            aria-hidden
-            src="/globe.svg"
-            alt="Globe icon"
-            width={16}
-            height={16}
-          />
-          Go to nextjs.org →
-        </a>
-      </footer>
+        ))}
+      </div>
     </div>
   );
 }
