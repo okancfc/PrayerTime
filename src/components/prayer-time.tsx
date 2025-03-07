@@ -28,12 +28,12 @@ export default function PrayerTime({
   return (
     <div className={containerClasses}>
       {/* İç kısım: Sadece sıradaki namazın çerçevesi küçültüldü, boşluklar korunuyor */}
-      <div className={`flex justify-between items-center w-full px-6 ${status === 'next' ? 'ring-1 ring-white rounded-xl shadow-lg max-w-md mx-auto p-2' : ''}`}>
+      <div className={`flex justify-between items-center w-full px-6 ${status === 'next' ? 'ring-1 ring-white rounded-xl shadow-lg max-w-xs md:max-w-sm lg:max-w-md xl:max-w-lg mx-auto p-2' : ''}`}>
         <div className="w-1/2 flex justify-end">
-          <h2 className={`text-3xl md:text-2xl px-32 ${status === 'past' ? 'opacity-40' : ''}`}>{time}</h2>
+          <h2 className={`text-3xl md:text-2xl px-15 ${status === 'past' ? 'opacity-40' : ''}`}>{time}</h2>
         </div>
-        <div className="w-1/2 flex justify-start">
-          <h2 className={`text-3xl md:text-2xl px-32 ${status === 'past' ? 'opacity-40' : ''}`}>{name}</h2>
+        <div className="w-1/2 flex justify-start space-x-4 sm:space-x-6 md:space-x-8 lg:space-x-10 xl:space-x-12">
+          <h2 className={`text-3xl md:text-2xl px-15 ${status === 'past' ? 'opacity-40' : ''}`}>{name}</h2>
         </div>
       </div>
     </div>
