@@ -1,7 +1,10 @@
-import type { NextConfig } from "next";
+// next.config.ts
+
+import { NextConfig } from 'next'
 
 const nextConfig: NextConfig = {
-  /* config options here */
-};
+  output: 'export', // Statik dışa aktarmayı etkinleştirir
+  reactStrictMode: true, // Opsiyonel, hataların daha erken tespit edilmesi için
+}
 
-export default nextConfig;
+export default nextConfig

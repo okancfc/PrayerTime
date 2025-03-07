@@ -14,6 +14,7 @@ export default function Home() {
   const [isLoading, setIsLoading] = useState(true);
   const [error, setError] = useState<string | null>(null);
   const [nextPrayer, setNextPrayer] = useState<{name: string, time: string} | null>(null);
+  const [currentTime, setCurrentTime] = useState<Date>(new Date());
 
   // Namaz vakitlerini çekme
   useEffect(() => {
@@ -58,8 +59,13 @@ export default function Home() {
     
     fetchPrayerTimes();
     
-    // Her dakika güncelleme
-    const intervalId = setInterval(() => {
+    // Şu anki zamanı her saniye güncelle
+    const timeInterval = setInterval(() => {
+      setCurrentTime(new Date());
+    }, 1000);
+    
+    // Her dakika namaz vaktini güncelleme
+    const prayerInterval = setInterval(() => {
       if (prayerTimes.length > 0) {
         const nextPrayer = findNextPrayer(prayerTimes);
         if (nextPrayer) {
@@ -68,8 +74,11 @@ export default function Home() {
       }
     }, 60000);
     
-    return () => clearInterval(intervalId);
-  }, []);
+    return () => {
+      clearInterval(timeInterval);
+      clearInterval(prayerInterval);
+    };
+  }, [prayerTimes.length]);
 
   // Bir sonraki namaz vaktini bulma
   const findNextPrayer = (times: PrayerTiming[]): {name: string, time: string} | null => {
@@ -114,6 +123,37 @@ export default function Home() {
     }
   };
 
+// Namaz vaktinin durumunu hesaplama (geçmiş, sıradaki, gelecek)
+const getPrayerStatus = (prayerName: string, prayerTime: string): 'past' | 'next' | 'future' => {
+  if (!nextPrayer) return 'future';
+  
+  // Doğrudan nextPrayer ile karşılaştır (sıradaki namazı belirle)
+  if (nextPrayer.name === prayerName || 
+      (nextPrayer.name.includes("Yarın") && nextPrayer.name.includes(prayerName))) {
+    console.log(`${prayerName} is NEXT`); // Debug için log
+    return 'next';
+  }
+  
+  // Şu anki zamanı dakika cinsinden hesapla
+  const now = new Date();
+  const currentHours = now.getHours();
+  const currentMinutes = now.getMinutes();
+  const currentTimeInMinutes = currentHours * 60 + currentMinutes;
+  
+  // Namaz vaktini dakika cinsinden hesapla
+  const [hours, minutes] = prayerTime.split(':').map(Number);
+  const prayerTimeInMinutes = hours * 60 + minutes;
+  
+  // Geçmiş namaz kontrolü (şimdiki zamandan önce mi?)
+  if (prayerTimeInMinutes < currentTimeInMinutes) {
+    console.log(`${prayerName} is PAST`); // Debug için log
+    return 'past';
+  }
+  
+  console.log(`${prayerName} is FUTURE`); // Debug için log
+  return 'future';
+};
+
   if (isLoading) {
     return (
       <div className="flex items-center justify-center h-screen text-white bg-lime-950">
@@ -144,16 +184,25 @@ export default function Home() {
         )}
       </div>
       
+      {/* Debug bilgisi - test için */}
+      <div className="text-center text-xs mb-2">
+        Şu anki zaman: {currentTime.toLocaleTimeString()}
+      </div>
+      
       {/* Namaz vakitleri için alt bölüm (kalan tüm alanı kaplar) */}
-      <div className="flex-1 flex flex-col">
-        {prayerTimes.map((data, index) => (
-          <PrayerTime 
-            key={index} 
-            time={data.time} 
-            name={data.name} 
-            index={index} 
-          />
-        ))}
+      <div className="flex-1 flex flex-col border-t border-white/20">
+        {prayerTimes.map((data, index) => {
+          const status = getPrayerStatus(data.name, data.time);
+          return (
+            <PrayerTime 
+              key={index} 
+              time={data.time} 
+              name={data.name} 
+              index={index}
+              status={status}
+            />
+          );
+        })}
       </div>
     </div>
   );
