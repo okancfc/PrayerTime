@@ -34,8 +34,11 @@ const CountdownTimer = ({ targetTime, prayerName }: CountdownTimerProps) => {
         const targetDate = new Date(today);
         targetDate.setHours(hours, minutes, 0, 0);
         
-        // Eğer hedef zaman bugün geçmişse ve "Yarın" ifadesi yoksa, yarına ayarla
-        if (targetDate < now && !prayerName.includes("Yarın")) {
+        // Eğer hedef zaman geçmişse ve sonraki namaz yarınki ise, bir gün ekle
+        if (prayerName.includes("Yarın")) {
+          targetDate.setDate(targetDate.getDate() + 1);
+        } else if (targetDate < now) {
+          // Eğer hedef zaman bugün geçmişse, yarına ayarla
           targetDate.setDate(targetDate.getDate() + 1);
         }
         
@@ -71,23 +74,19 @@ const CountdownTimer = ({ targetTime, prayerName }: CountdownTimerProps) => {
     return () => clearInterval(timer);
   }, [targetTime, prayerName]);
 
-  // Debug için
-  console.log("Target time:", targetTime);
-  console.log("Current time left:", timeLeft);
-
   // Zamanı formatlama
   const formatTimeUnit = (unit: number) => String(unit).padStart(2, "0");
 
   return (
-    <div className="flex flex-col items-center justify-center mt-4">
-      <div className="text-5xl font-bold">
-        {formatTimeUnit(timeLeft.hours)}:{formatTimeUnit(timeLeft.minutes)}:{formatTimeUnit(timeLeft.seconds)}
+      <div className="flex flex-col items-center justify-center mt-2 md:mt-4">
+        <div className="text-3xl md:text-5xl font-bold">
+          {formatTimeUnit(timeLeft.hours)}:{formatTimeUnit(timeLeft.minutes)}:{formatTimeUnit(timeLeft.seconds)}
+        </div>
+        <div className="mt-1 md:mt-2 text-md md:text-xl">
+          {prayerName} Vaktine Kalan Süre
+        </div>
       </div>
-      <div className="mt-2 text-xl">
-        {prayerName} Vaktine Kalan Süre
-      </div>
-    </div>
-  );
+    );
 };
 
 export default CountdownTimer;
